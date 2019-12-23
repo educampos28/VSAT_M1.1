@@ -129,11 +129,10 @@ main(int argc, char* argv[])
   }
   trace_printf("SPI ok!\n");
 
-  uint8_t Channel = 0x0F;
   RadioCallbacks_t CallBack;
 
   LORA	Lora(&CallBack);
-  if(!Lora.Initialize(&spi,0,Channel))
+  if(!Lora.Initialize(&spi,915))
   {
 	  trace_printf("Lora fail!\n");
 	  assert(false);
@@ -166,7 +165,7 @@ main(int argc, char* argv[])
       timer.sleep(BLINK_OFF_TICKS);
 
       uint8_t data[10]={0xFF,0xAA,0,1,2,3,4,5,6,7};
-      Lora.SendPayload(data,10,0);
+      Lora.SendPayload(data,6,0);
 	  timer.sleep(10);
       while(DIO2_IS_HIGH);
 

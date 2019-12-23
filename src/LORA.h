@@ -85,8 +85,8 @@ public:
 	LORA(RadioCallbacks_t *callbacks);
 	virtual ~LORA();
 
-	//Channel = 0x0F  -> Default 915 MHz
-	bool Initialize(SPI* Serial,uint16_t Address, uint8_t Channel=0x0F);
+	//Freq -> Default 915 MHz
+	bool Initialize(SPI* Serial,uint16_t Freq = 915);
 	void Sleep();
 	void PowerSaving();
 	bool WakeUp();
@@ -94,7 +94,7 @@ public:
 	void Reset();
 	bool Avaliable(void);
 	bool TXDone(void);
-
+	void SetFixLength(uint8_t size);
     void EnableTX(void);
     void EnableRX(void);
 
@@ -110,11 +110,14 @@ public:
 	bool WriteRegister( uint16_t address, uint8_t *buffer, uint16_t size );
 	bool WriteBuffer( uint8_t offset, uint8_t *buffer, uint8_t size );
 
+	bool SendPayload( uint8_t *payload, uint8_t size, uint32_t timeout );
+
 private:
 	SPI* Serial;
-	uint16_t Local_Address;
-	uint8_t Local_Channel;
-
+//	uint16_t Local_Address;
+	uint16_t Freq;
+	PacketParams_t packetParams;
+	ModulationParams_t modulationParams;
 
 	uint8_t ReadReg( uint16_t address );
 	uint8_t GetDeviceType( void );
@@ -126,7 +129,7 @@ private:
 	uint8_t GetDioStatus( void );
 
     void AntSwOn( void ){};
-    void AntSwOff( void ){};
+    void AntSwOff( void );
     void IoIrqInit( DioIrqHandler irqHandler ){ assert(false);};
 
 

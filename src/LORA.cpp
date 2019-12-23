@@ -13,8 +13,8 @@
 
 LORA::LORA(RadioCallbacks_t *callbacks):SX126x(callbacks){
 
-	this->Local_Address = 0;
-	this->Local_Channel = 0;
+//	this->Local_Address = 0;
+	this->Freq = 0;
 	Serial = NULL;
 
 	//set pin as output
@@ -75,12 +75,17 @@ void LORA::Sleep() {
 */
 void LORA::Reset() {
 
+	//write zero
 	GPIO_ResetBits(GPIOB,PIN_MASK(NRST));
 	usleep(200000);
+	//write one
 	GPIO_SetBits(GPIOB,PIN_MASK(NRST));
 	usleep(1000000);
 }
 
+/*
+ 	 Return the status that some data was received
+ */
 bool LORA::Avaliable(){
 
 	volatile RadioStatus_t status;
@@ -153,16 +158,16 @@ void LORA::Pin_Setup()
 
 }
 
-bool LORA::Initialize(SPI* Serial,uint16_t Address, uint8_t Channel){
+bool LORA::Initialize(SPI* Serial,uint16_t Freq){
 
 	//Attach the serial port
 	this->Serial  = Serial;
-	this->Local_Address = Address;
-	this->Local_Channel = Channel;
+	this->Freq = Freq;
 
 	Pin_Setup();
 
 	Reset();
+	assert(false);
 
 	while(BUSY_IS_HIGH);
 
@@ -173,7 +178,7 @@ bool LORA::Initialize(SPI* Serial,uint16_t Address, uint8_t Channel){
 
 	assert(status.Fields.ChipMode==SX126X_STATUS_MODE_STDBY_RC);
 
-	Init(Channel);
+	Init(Freq);
 
 	while(BUSY_IS_HIGH);
 
@@ -188,7 +193,7 @@ bool LORA::Initialize(SPI* Serial,uint16_t Address, uint8_t Channel){
 	SetBufferBaseAddresses(txBaseAddress,rxBaseAddress);
 
 	// Define the modulation parameter according to the chosen protocol
-	ModulationParams_t modulationParams;
+
 	modulationParams.PacketType = PACKET_TYPE_LORA;
 	modulationParams.Params.LoRa.Bandwidth = LORA_BW_500;
 	modulationParams.Params.LoRa.CodingRate = LORA_CR_4_8;
@@ -199,11 +204,10 @@ bool LORA::Initialize(SPI* Serial,uint16_t Address, uint8_t Channel){
 	status.Value = GetStatus().Value;
 
 //	Define the frame format
-	PacketParams_t packetParams;
 	packetParams.PacketType = PACKET_TYPE_LORA;
 	packetParams.Params.LoRa.PreambleLength = 0x08;
 	packetParams.Params.LoRa.PayloadLength = 0x0A;
-	packetParams.Params.LoRa.HeaderType = LORA_PACKET_FIXED_LENGTH;
+	packetParams.Params.LoRa.HeaderType = LORA_PACKET_VARIABLE_LENGTH;
 	packetParams.Params.LoRa.CrcMode = LORA_CRC_ON;
 	packetParams.Params.LoRa.InvertIQ = LORA_IQ_NORMAL;
 	SetPacketParams(&packetParams);
@@ -214,6 +218,30 @@ bool LORA::Initialize(SPI* Serial,uint16_t Address, uint8_t Channel){
 	assert((error.Value & 0x00FF) == 0);
 
 	return true; //successful
+}
+
+void LORA::SetFixLength(uint8_t size){
+
+	packetParams.Params.LoRa.PayloadLength = size;
+	packetParams.Params.LoRa.HeaderType = LORA_PACKET_FIXED_LENGTH;
+	SetPacketParams(&packetParams);
+}
+
+bool LORA::SendPayload( uint8_t *payload, uint8_t size, uint32_t timeout ){
+
+	if( packetParams.Params.LoRa.HeaderType == LORA_PACKET_VARIABLE_LENGTH)
+	{
+		packetParams.Params.LoRa.PayloadLength = size;
+		SetPacketParams(&packetParams);
+	}
+
+	//in case os fixed length, the payload must have the correct size
+	assert(packetParams.Params.LoRa.PayloadLength == size );
+
+
+	SX126x::SendPayload( payload, size, timeout );
+
+	return true;
 }
 
 //Overwrite the classe function
@@ -284,6 +312,10 @@ uint8_t LORA::ReadReg( uint16_t address )
     return data;
 }
 
+//------------------------------------------------------------------------------
+//
+// Hardware depende funcition
+//
 //------------------------------------------------------------------------------
 bool LORA::WriteCommand( RadioCommands_t opcode, uint8_t *buffer, uint8_t size ){
 
@@ -510,3 +542,10 @@ void LORA::EnableRX(void){
 	GPIO_SetBits(GPIOB,PIN_MASK(RXEN));
 	usleep(100000);
 }
+
+void LORA::AntSwOff( void ){
+
+	GPIO_ResetBits(GPIOB,PIN_MASK(RXEN));
+	GPIO_ResetBits(GPIOB,PIN_MASK(TXEN));
+
+};
